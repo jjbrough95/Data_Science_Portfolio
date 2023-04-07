@@ -1,0 +1,213 @@
+---
+title: "DSC 680 Project 1"
+author: "Jed Brough"
+date: '2022-06-14'
+output: pdf_document
+---
+
+#Libraries
+```{r}
+library(tidyverse)
+library(ggmap)
+library(corrplot)
+library(caret)
+library(MASS)
+library(glmnet)
+library(randomForest)
+library(modelr)
+```
+
+
+#Read Data
+```{r}
+housing <- read.csv("miami-housing.csv")
+```
+
+
+#Data Cleaning
+```{r}
+housing <- housing %>% 
+  rename(
+    "latitude" = "LATITUDE",
+    "longitude" = "LONGITUDE",
+    "parcel_num" = "PARCELNO",
+    "sale_price" = "SALE_PRC",
+    "land_square_foot" = "LND_SQFOOT",
+    "floor_square_foot" = "TOT_LVG_AREA",
+    "value_of_special_features" = "SPEC_FEAT_VAL",
+    "rail_distance" = "RAIL_DIST",
+    "ocean_distance" = "OCEAN_DIST",
+    "water_distance" = "WATER_DIST",
+    "miami_center_distance" = "CNTR_DIST",
+    "miami_subcenter_distance" = "SUBCNTR_DI",
+    "highway_distance" = "HWY_DIST",
+    "age_of_structure" = "age",
+    "airplane_noise_issue" = "avno60plus"
+  ) %>% 
+  dplyr::select(-parcel_num) %>%
+  mutate(airplane_noise_issue = as.factor(airplane_noise_issue),
+         month_sold = as.factor(month_sold))
+```
+
+
+#EDA
+```{r message = FALSE}
+#Map overlay of Miami home sales
+qmplot(longitude, 
+       latitude, 
+       data = housing, 
+       color = sale_price,
+       maptype = "terrain"
+)
+
+pairs(sale_price ~ ., data = housing)
+
+#correlation plot for all variables
+# corrplot(cor(housing), method = 'color', type = "lower", diag = FALSE)
+
+ggplot(housing, aes(month_sold)) + geom_bar(aes(fill = as.factor(structure_quality)))
+
+ggplot(housing, aes(x = as.factor(structure_quality), y = sale_price)) + geom_boxplot()
+```
+
+
+#Train and Test
+```{r}
+index <- caret::createDataPartition(housing$sale_price, p = 0.70, list = FALSE)
+
+housing_train <- housing[index, ]
+housing_test <- housing[-index, ]
+```
+
+
+#Models
+##Linear Regression
+```{r}
+housing_lm <- lm(sale_price ~ ., data = housing_train)
+
+summary(housing_lm)
+
+step_housing_lm <- stepAIC(housing_lm, direction = "both", 
+                      trace = FALSE)
+
+summary(step_housing_lm)
+
+plot(step_housing_lm)
+
+lm_preds <- predict.lm(step_housing_lm, newdata = housing_test, interval = "prediction")
+
+#Sum of Squares Total
+lm_sst <- sum((housing_test[["sale_price"]] - mean(housing_test[["sale_price"]]))^2)
+#Sum of Squares Error
+lm_sse <- sum((lm_preds[,'fit'] - housing_test[["sale_price"]])^2)
+
+#Find R-Squared
+lm_rsq <- 1 - lm_sse/lm_sst
+lm_rsq
+```
+
+
+##Ridge Regression
+```{r}
+y_train <- housing_train$sale_price
+y_test <- housing_test$sale_price
+x_train <- data.matrix(housing_train[, c(
+  "latitude"
+  , "longitude"
+  , "land_square_foot"
+  , "floor_square_foot"
+  , "value_of_special_features"
+  , "rail_distance"
+  , "ocean_distance"
+  , "miami_center_distance"
+  , "miami_subcenter_distance"
+  , "highway_distance"
+  , "age_of_structure"
+  , "airplane_noise_issue"
+  , "structure_quality"
+  )])
+
+x_test <- data.matrix(housing_test[, c(
+  "latitude"
+  , "longitude"
+  , "land_square_foot"
+  , "floor_square_foot"
+  , "value_of_special_features"
+  , "rail_distance"
+  , "ocean_distance"
+  , "miami_center_distance"
+  , "miami_subcenter_distance"
+  , "highway_distance"
+  , "age_of_structure"
+  , "airplane_noise_issue"
+  , "structure_quality"
+  )])
+
+
+housing_ridge_cv <- cv.glmnet(x_train, y_train, alpha = 0)
+best_lambda <- housing_ridge_cv$lambda.min
+
+housing_ridge_best <- glmnet(x_train, y_train, alpha = 0, lambda = best_lambda)
+coef(housing_ridge_best)
+
+ridge_preds <- predict(housing_ridge_best, newx = x_test)
+
+ridge_sst <- sum((y_test - mean(y_test))^2)
+ridge_sse <- sum((ridge_preds - y_test)^2)
+
+#find R-Squared
+ridge_rsq <- 1 - ridge_sse/ridge_sst
+ridge_rsq
+```
+
+
+##Lasso Regression
+```{r}
+housing_lasso_cv <- cv.glmnet(x_train, y_train, alpha = 1)
+best_lambda <- housing_lasso_cv$lambda.min
+
+housing_lasso_best <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda)
+coef(housing_lasso_best)
+
+lasso_preds <- predict(housing_lasso_best, newx = x_test)
+
+lasso_sst <- sum((y_test - mean(y_test))^2)
+lasso_sse <- sum((lasso_preds - y_test)^2)
+
+#find R-Squared
+lasso_rsq <- 1 - lasso_sse/lasso_sst
+lasso_rsq
+```
+
+
+##Random Forest Regression
+```{r}
+housing_rf <- randomForest(sale_price ~ . - month_sold, data = housing_train)
+
+rf_preds <- predict(housing_rf, newdata = housing_test)
+
+rf_sst <- sum((housing_test[["sale_price"]] - mean(housing_test[["sale_price"]]))^2)
+rf_sse <- sum((rf_preds - y_test)^2)
+
+#find R-Squared
+rf_rsq <- 1 - rf_sse/rf_sst
+rf_rsq
+```
+
+
+###Tune Hyperparameters
+```{r}
+mtry <- tuneRF(housing_train[-1],housing_train$sale_price, ntreeTry=500,
+               stepFactor=1.5,improve=0.01, trace=TRUE, plot=TRUE)
+best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+print(mtry)
+print(best.m)
+```
+
+
+###Fit Best Random Forest Model
+```{r}
+housing_rf_best <- randomForest(sale_price ~ . - month_sold, data = housing_train, mtry = 15)
+```
+
+
