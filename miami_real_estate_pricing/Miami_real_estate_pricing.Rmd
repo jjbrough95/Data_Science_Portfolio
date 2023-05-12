@@ -62,8 +62,8 @@ qmplot(longitude,
 
 pairs(sale_price ~ ., data = housing)
 
-#correlation plot for all variables
-# corrplot(cor(housing), method = 'color', type = "lower", diag = FALSE)
+# correlation plot for all variables
+corrplot(cor(housing[,-c(14, 15)]), method = 'color', type = "lower", diag = FALSE)
 
 ggplot(housing, aes(month_sold)) + geom_bar(aes(fill = as.factor(structure_quality)))
 

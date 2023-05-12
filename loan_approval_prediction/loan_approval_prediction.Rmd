@@ -1,0 +1,125 @@
+---
+title: "loan_approval_prediction"
+author: "Jed Brough"
+date: "2023-04-15"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#Libraries
+```{r}
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(neuralnet)
+```
+
+
+#Read Data
+```{r}
+loans <- read.csv("loan_approval_train.csv", na.strings = c(""))
+# loan_no_status <- read.csv("loan_approval_test.csv", na.strings = c(""))
+```
+
+#Clean Data
+```{r}
+loans <- loans %>% 
+  #Remove 134 rows with missing data
+  na.omit() %>% 
+  #Remove duplicate rows
+  distinct() %>% 
+  #Change credit history data type from integer to factor
+  mutate(
+    Gender = as.factor(Gender),
+    Married = as.factor(Married),
+    Dependents = as.factor(Dependents),
+    Education = as.factor(Education),
+    Self_Employed = as.factor(Self_Employed),
+    Property_Area = as.factor(Property_Area),
+    Credit_History = as.factor(Credit_History),
+    Loan_Status = as.factor(Loan_Status)
+  ) %>% 
+  select(-Loan_ID)
+```
+
+
+#EDA
+```{r}
+str(loans)
+
+
+loans %>% 
+  ggplot(aes(x = ApplicantIncome)) + 
+  geom_histogram(fill = "lightgreen")
+
+loans %>% 
+  ggplot(aes(x=Loan_Status, y=LoanAmount)) + 
+  geom_boxplot(fill = "darkgreen")
+
+loans %>% 
+  ggplot(aes(x=Loan_Status,fill=Gender)) + 
+  geom_bar()
+
+loans %>% 
+  ggplot(aes(x = ApplicantIncome, y = LoanAmount, color = Loan_Status)) +
+  geom_point()
+```
+
+
+#Train Test Split
+```{r}
+index <- caret::createDataPartition(loans$Loan_Status, p = 0.70, list = FALSE)
+
+loans_train <- loans[index, ]
+loans_test <- loans[-index, ]
+```
+
+
+#Scale data
+```{r}
+processed_values <- preProcess(loans_train[, -1], method = c("center", "scale"))
+loans_train[, -1] <- predict(processed_values, loans_train[, -1])
+loans_test[, -1] <- predict(processed_values, loans_test[, -1])
+```
+
+
+#Models
+##Logistic Regression
+```{r}
+lr_loan <- glm(Loan_Status ~ ., family = "binomial" (link = "logit"), data = loans_train)
+summary(lr_loan)
+
+lr_pred <- predict(lr_loan, newdata = loans_test, type = "response")
+
+lr_class_pred <- as.factor(ifelse(lr_pred > 0.5, "Y", "N"))
+
+confusionMatrix(lr_class_pred, loans_test$Loan_Status)
+```
+
+
+##Random Forest
+```{r}
+rf_loan <- randomForest(Loan_Status ~ ., data = loans_train, importance = TRUE)
+
+rf_pred <- predict(rf_loan, newdata = loans_test)
+
+confusionMatrix(rf_pred, loans_test$Loan_Status)
+```
+
+
+##K Nearest Neighbor
+```{r}
+knn_loans <- train(Loan_Status ~ ., data = loans_train, method = "knn", preProcess = c("center", "scale"), tuneGrid = expand.grid(k = 1:10))
+
+knn_pred <- predict(knn_loans, newdata = loans_test)
+
+confusionMatrix(knn_pred, loans_test$Loan_Status)
+```
+
+
+
+
