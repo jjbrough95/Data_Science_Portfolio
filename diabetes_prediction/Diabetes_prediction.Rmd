@@ -1,0 +1,126 @@
+---
+title: "Final Project"
+author: "Jed Brough"
+date: "06/04/2021"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r echo=FALSE, message=FALSE}
+# Libraries
+library(ggplot2)
+library(GGally)
+library(stats)
+library(caTools)
+
+# Import Data
+setwd("~/Documents/Masters/DSC520")
+diabetes <- read.csv("diabetes.csv")
+```
+
+
+
+Roughly 30 percent of the worlds estimated warehoused data comes from the healthcare industry. There are such large amounts of data to be searched through and so many insights that we could get if we were able to make sense of all the data. I was able to find a dataset on diabetes that provides some interesting opportunities. We know that there are several factors that contribute to diabetes, some of them are genetic and some of them are influenced by lifestyle. I want to use the data to be able to see which variable are most correlated with diabetes and which variables could be affected by lifestyle changes to prevent or manage diabetes. If diabetes could be prevented or managed primarily through lifestyle changes, that could potentially save money and increase the quality of life for the patients.
+
+For this project, I used a dataset that looked at health factors in women among the Pima Indian tribe. The dataset was downloaded from Kaggle.com. The dataset has 768 observations with 9 variables to work with. I removed the variable SkinThickness because it had a low correlation with the other variables, most importantly, a low correlation with the response variable Outcome. I removed values with 0 blood pressure because 0 blood pressure indicates either death or an error.
+
+Below are the first 10 observations in the dataset followed by the structure of the dataset that includes each variable and it's data type.
+
+```{r echo=FALSE, message=FALSE}
+#Clean data
+diabetes <- diabetes[,-4]
+diabetes <- na.omit(diabetes)
+diabetes <- diabetes[diabetes$BloodPressure!=0,]
+diabetes$Outcome <- as.factor(diabetes$Outcome)
+
+# View Data
+head(diabetes)
+str(diabetes)
+```
+Outcome is the response variable that indicates a diabetes diagnosis. 1 indicates a diagnosis of diabetes and 0 indicates a diagnosis of no diabetes. The remaining variables will be used as independent variables.
+
+Below is a plot that shows scatterplots and correlation coefficients of each of the variable combinations and their relationship with the response variable.
+
+```{r echo=FALSE, message=FALSE, message=FALSE}
+# Correlation between variables
+ggpairs(diabetes)
+```
+
+##Boxplots: each variable against Outcome
+
+```{r echo=FALSE, message=FALSE}
+# Boxplots of data against Outcome variable
+ggplot(diabetes, aes(x=Outcome, y=Pregnancies))+geom_boxplot()
+ggplot(diabetes, aes(x=Outcome, y=Glucose))+geom_boxplot()
+ggplot(diabetes, aes(x=Outcome, y=BloodPressure))+geom_boxplot()
+ggplot(diabetes, aes(x=Outcome, y=Insulin))+geom_boxplot()
+ggplot(diabetes, aes(x=Outcome, y=BMI))+geom_boxplot()
+ggplot(diabetes, aes(x=Outcome, y=DiabetesPedigreeFunction))+geom_boxplot()
+ggplot(diabetes, aes(x=Outcome, y=Age))+geom_boxplot()
+```
+
+##Histograms of each variable.
+Histograms are color coded. Blue represents the data of the diabetic individuals and pink of the non-diabetic individuals
+
+```{r echo=FALSE, message=FALSE}
+# Histograms of each variable color coded by Outcome
+ggplot(diabetes, aes(Pregnancies, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+ggplot(diabetes, aes(x=Glucose, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+ggplot(diabetes, aes(x=BloodPressure, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+ggplot(diabetes, aes(x=Insulin, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+ggplot(diabetes, aes(x=BMI, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+ggplot(diabetes, aes(x=DiabetesPedigreeFunction, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+ggplot(diabetes, aes(x=Age, fill=Outcome))+geom_histogram(alpha=0.5, position='identity')
+```
+
+##Logistic Regression Model
+I fit a logistic regression model to determine which variables are most significant in predicting diabetes. I started by splitting the data into train and test sets with an 80-20 ratio. I then used the train set to create a logistic regression model.
+
+```{r echo=FALSE, message=FALSE}
+# Split data into test and train sets
+split <- sample.split(diabetes, SplitRatio = 0.8)
+train <- subset(diabetes, split == 'TRUE')
+test <- subset(diabetes, split == 'FALSE')
+
+# Train logistic regrssion model
+diabetes_glm <- glm(Outcome ~ ., data = train, family = 'binomial')
+summary(diabetes_glm)
+```
+
+Based on the regression summary output, we can see that pregnancies, glucose, BMI, and the diabetes diabetes pedigree function are all significant in predicting Outcome.
+
+I used the test set to calculate predictions using the logistic model. I created a confusion matrix to compare the model predictions against the actual results and calculated the accuracy of the model
+
+```{r echo=FALSE, message=FALSE}
+# Use model to calculate predictions
+res <- predict(diabetes_glm, train, type = 'response')
+
+#Create Confusion matrix
+confmatrix <- table(Actual_Value=train$Outcome, Predicted_Value= res > 0.5)
+confmatrix
+
+#Calculate Accuracy
+accuracy <- (confmatrix[1,1]+confmatrix[2,2])/sum(confmatrix)
+accuracy
+```
+
+We can see that the model is 79.09% accurate.
+
+## Implications
+
+Type 2 diabetes can primarily be managed by making lifestyle changes in diet and activity levels. BMI and glucose are two variables that are tied to a persons lifestyle, and can be altered by diet and activity. Healthcare providers can improve the quality of life of an individual and reduce the cost of treatment if they are able to manage diabetes through diet and exercise alone. While a family history of diabetes is indicative of diabetes in an individual, we can see that both BMI and glucose were more significant than pedigree in predicting diabetes.
+
+## Limitations
+
+While type 2 diabetes can be managed by diet and exercise, type 1 can only be treated through insulin shots. Unfortunately, the outcome variable does not distinguish between type 1 and type 2 diabetes. This makes it difficult to know if variables like glucose and BMI are significant for only type 2 or for both types of diabetes. Another limitation of this analysis is that it implies correlation and not causation. While the study implies that glucose levels and BMI can be used to manage diabetes, it could be possible that diabetes leads to significant glucose levels and BMI. Instead of using diet and exercise to manage diabetes, diabetes could be affecting the glucose and BMI of the individuals.
+
+
+
+
