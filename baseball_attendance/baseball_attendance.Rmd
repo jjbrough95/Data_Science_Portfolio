@@ -1,0 +1,42 @@
+---
+title: "Assignment 3.2"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(stats)
+library(glmnet)
+```
+
+##Read Data
+Read the data into the environment. Display the first 6 observations to get an idea of the data. Display summary statistics to understand the basics of the dataset and each of the variables.
+
+```{r}
+setwd("~/Data Science Masters/DSC 630 Predictive Modeling")
+dodger <- read.csv("Dodgers.csv")
+head(dodger)
+summary(dodger)
+```
+##Plots
+The first boxplot shows game attendance based on the day of the week that the game was played. The second boxplot shows game attendance against the month of the game. The last chart, a scatterplot, shows game attendance and the temperature recorded during the game.
+
+```{r}
+ggplot(data=dodger, aes(x=day_of_week, y=attend)) + geom_boxplot()
+ggplot(data=dodger, aes(x=month, y=attend)) + geom_boxplot()
+ggplot(data=dodger, aes(x=temp, y=attend)) + geom_point()
+```
+##Linear Regression Model and Summary
+
+
+```{r}
+dodger_model <- lm(attend~., data=dodger)
+summary(dodger_model)
+```
+
+The R-squared value for the model is 0.71 and the p-value is 0.000249. Both of these values indicate that the model is statistically significant. Some of the significant coefficients with the largest positive interaction are fireworksYES and day_of_weekTuesday. This would mean that games on Tuesdays tend to have 26927.672 more people in attendance and games with fireworks have 20183.543 more people in attendance than games without fireworks.
+
+##Conclusion
+If I were to recommend a specific night to run the promotion, I would say a Tuesday night in August preferably when fireworks or bobble heads are involved. According to the model output, this would help to maximize the likelihood of having the largest crowd possible in attendance at the game
+

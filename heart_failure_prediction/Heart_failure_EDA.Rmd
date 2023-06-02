@@ -1,0 +1,50 @@
+---
+title: "Final Project Milestone 3"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r cars}
+library(tidyverse) #load tidyverse library
+library(GGally) #load GGally library
+setwd("~/Data Science Masters/DSC 630 Predictive Modeling")
+heart <- read.csv("heart_failure_clinical_records.csv") #read in dataset
+```
+
+## Exploratory Data Analysis
+
+
+```{r pressure, echo=FALSE}
+head(heart) #view first observations from data
+str(heart) #view data structure
+#Change variable type from numeric to factor
+heart$anaemia <- as.factor(heart$anaemia)
+heart$diabetes <- as.factor(heart$diabetes)
+heart$high_blood_pressure <- as.factor(heart$high_blood_pressure)
+heart[heart$sex == 0,]$sex <- "F"
+heart[heart$sex == 1,]$sex <- "M"
+heart$sex <- as.factor(heart$sex)
+heart$DEATH_EVENT <- as.factor(heart$DEATH_EVENT)
+heart$smoking <- as.factor(heart$smoking)
+#Change variable type from numeric to integer
+heart$age <- as.integer(heart$age)
+```
+
+```{r}
+summary(heart)
+ggpairs(heart, columns = c(1,3,5,7,8,9,12,13))
+qplot(heart$DEATH_EVENT,heart$age, geom = 'boxplot')
+```
+```{r}
+mod <- glm(DEATH_EVENT ~.,data=heart, family=binomial(link=logit))
+summary(mod )
+```
+
+
+
+
